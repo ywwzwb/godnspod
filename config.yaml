@@ -1,0 +1,10 @@
+# support method:
+# wanip: try get ip by wan ip, only work on ea6500v2, other platform is not tested yet
+# ip.cip.cc: get ip from ip.cip.cc
+get_ip_method: ip.cip.cc
+# in seconds
+refresh_interval: 60
+# dnspod token
+token: xxx,yyy
+basedomain: example.com
+subdomain: www
