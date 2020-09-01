@@ -17,7 +17,7 @@
 * refresh_interval: 检查 IP 地址的时间间隔, 单位是秒, 设置为 0 程序将会经运行一次就退出
 * token: dnspod 鉴权用的token, 见 [[https://support.dnspod.cn/account/5f2d466de8320f1a740d9ff3](https://support.dnspod.cn/account/5f2d466de8320f1a740d9ff3/)]
 * basedomain: 你的域名, 例如 example.com
-* subdomain: 需要设置绑定的子域名, 例如 www. 设置好之后, subdomain.basedomain 将会是绑定到你的 IP 地址, 例如 www.example.com, 如果需要将 IP 地址直接绑定到 basedomain 上, subdomain 设置为 `@` , 如果需要设置为泛域名, 可以设置为 `*`
+* subdomain: 需要设置绑定的子域名, 例如 www. 设置好之后, subdomain.basedomain 将会绑定到你的 IP 地址. 如果需要将 IP 地址直接绑定到 basedomain 上, 请将 subdomain 设置为 `@` , 如果需要设置为泛域名, 可以设置为 `*`
 
 ## 关于直接运行
 
