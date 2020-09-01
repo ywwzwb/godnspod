@@ -31,5 +31,5 @@
 你需要准备一个配置文件后, 将其映射为容器中的 /config/config.yaml 文件.
 例如:
 ``` bash
-docker run --name godnstest -d --mount type=bind,source=/Users/zwb/go/src/godnspod/test/config.yaml,target=/config/config.yaml ywwzwb/godnspod
+docker run --name godnstest -d --mount type=bind,source=/yourpath/config.yaml,target=/config/config.yaml ywwzwb/godnspod
 ```
