@@ -2,7 +2,8 @@
 # wanip: try get ip by wan ip, only work on ea6500v2, other platform is not tested yet
 # ip.cip.cc: get ip from ip.cip.cc
 get_ip_method: ip.cip.cc
-# in seconds
+# interval is measured in seconds
+# 0 means run once and quit
 refresh_interval: 60
 # dnspod token
 token: xxx,yyy

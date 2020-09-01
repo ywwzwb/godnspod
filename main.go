@@ -234,7 +234,11 @@ func main() {
 	save_last_ip:
 		lastPubIP = ip
 	sleep:
-		log.Printf("sleep %v for refresh\n", conf.RefreshInterval*time.Second)
-		time.Sleep(conf.RefreshInterval * time.Second)
+		if conf.RefreshInterval > 1 {
+			log.Printf("sleep %v for refresh\n", conf.RefreshInterval*time.Second)
+			time.Sleep(conf.RefreshInterval * time.Second)
+		} else {
+			break
+		}
 	}
 }

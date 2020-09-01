@@ -14,7 +14,7 @@
 * get_ip_method: 获取公网 IP 的方式, 目前支持两种
   * wanip: 仅路由器支持, 使用设备的 wan 口 IP 地址, 目前仅在我的路由器(ea6500v2, 梅林版本 380.70_0-X7.9.1)上可以正常使用, 其他路由器暂不清楚.
   * ip.cip.cc: 使用 [ip.cip.cc](http://ip.cip.cc) 的接口获取公网 IP 地址, 所有设备以及 docker 环境均可使用.
-* refresh_interval: 检查 IP 地址的时间间隔, 单位是秒
+* refresh_interval: 检查 IP 地址的时间间隔, 单位是秒, 设置为 0 程序将会经运行一次就退出
 * token: dnspod 鉴权用的token, 见 [[https://support.dnspod.cn/account/5f2d466de8320f1a740d9ff3](https://support.dnspod.cn/account/5f2d466de8320f1a740d9ff3/)]
 * basedomain: 你的域名, 例如 example.com
 * subdomain: 需要设置绑定的子域名, 例如 www. 设置好之后, subdomain.basedomain 将会是绑定到你的 IP 地址, 例如 www.example.com, 如果需要将 IP 地址直接绑定到 basedomain 上, subdomain 设置为 `@` , 如果需要设置为泛域名, 可以设置为 `*`
