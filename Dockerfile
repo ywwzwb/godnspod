@@ -13,4 +13,4 @@ RUN go build
 FROM alpine:latest
 COPY --from=0 /go/src/godnspod/godnspod /bin/godnspod
 COPY --from=0 /go/src/godnspod/config.yaml /config/config.yaml
-CMD [ "/bin/godnspod", "-c", "/config/config.yaml" ]
+CMD [ "/bin/godnspod", "-config_path", "/config/config.yaml" ]

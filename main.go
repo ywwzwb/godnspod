@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"godnspod/util"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -173,20 +174,50 @@ func setDomainANameRecord(subdomain string, domain string, token string, ip stri
 }
 func main() {
 	var configPath string
-	flag.StringVar(&configPath, "c", "", "config file path")
+	var logPath string
+	var logLevelStr string
+	flag.StringVar(&configPath, "config_path", "", "config file path")
+	flag.StringVar(&logPath, "log_path", "", "log file path, leave empty to log to stdout")
+	flag.StringVar(&logLevelStr, "log_level", "", "log level: trace, debug, info, warn, error, fatal, panic. default set to info")
 	flag.Parse()
-	if configPath == "" {
-		fmt.Println("config file path empty")
+	// read from env
+	configPathFromEnv, ok := os.LookupEnv("config_path")
+	if ok && len(configPathFromEnv) > 0 {
+		configPath = configPathFromEnv
+	}
+	logPathFromEnv, ok := os.LookupEnv("log_path")
+	if ok && len(logPathFromEnv) > 0 {
+		logPath = logPathFromEnv
+	}
+	logLevelStrFromEnv, ok := os.LookupEnv("log_level")
+	if ok && len(logLevelStrFromEnv) > 0 {
+		logLevelStr = logLevelStrFromEnv
+	}
+	if len(configPath) == 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
+	if len(logPath) == 0 {
+		fmt.Println("log path not set!, disable log")
+	}
+	if len(logLevelStr) == 0 {
+		fmt.Println("log level not set!, set to info")
+		logLevelStr = "info"
+	}
+	logLevel, err := logrus.ParseLevel(logLevelStr)
+	if err != nil {
+		fmt.Println("parse log level faild, set to info")
+		logLevel = logrus.InfoLevel
+	}
+	util.InitLoggerWith(logLevel, logPath, 3)
+	util.Logger.Info("start running")
 	var conf Config
 	fileBuf, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Fatal("read config file failed:", err)
+		util.Logger.WithError(err).Fatal("read config file failed")
 	}
 	if err = yaml.Unmarshal(fileBuf, &conf); err != nil {
-		log.Fatal("parse config file failed:", err)
+		util.Logger.WithError(err).Fatal("parse config file failed")
 	}
 	var lastPubIP string = ""
 	var anameIP string = ""
@@ -194,48 +225,48 @@ func main() {
 	for {
 		ip, err := getMyPubIP(conf.GetIPMethod)
 		if err != nil {
-			log.Println("get my public ip error:", err)
+			util.Logger.WithError(err).Error("get my public ip error:", err)
 			goto sleep
 		}
-		log.Println("my public ip:", ip)
+		util.Logger.WithField("ip", ip).Debug("my public ip")
 		if lastPubIP == ip {
-			log.Println("public ip has no change")
+			util.Logger.WithField("ip", ip).Debug("public ip has no change")
 			goto sleep
 		}
 		anameIP, recordid, err = getDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token)
 		if err != nil {
 			if dnspodErr, ok := err.(dnspodError); ok && dnspodErr.code == dnspodErrorCodeRecordNotExist {
 				// its ok if the domain is not exist, we can create it later
-				log.Printf("%v.%v is not exist yet, create it later", conf.Subdomain, conf.Basedomain)
+				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("domain is not exist, create it later")
 			} else {
-				log.Println("get A name record error:", err)
+				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("get A name record failed")
 				goto sleep
 			}
 		}
 		if anameIP == "" {
-			log.Println("start create record")
+			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("start create domain")
 			if err := createDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token, ip); err != nil {
-				log.Println("create domain name record failed: ", err)
+				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("create domain failed")
 				goto sleep
 			}
-			log.Println("create domain record success")
+			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("create domain success")
 		} else {
-			log.Println("A name record is:", anameIP)
+			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Debug("domain A record")
 			if anameIP == ip {
-				log.Println("A name record is equal to current ip")
+				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Debug("A record is equal to current ip")
 				goto save_last_ip
 			}
 			if err = setDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token, ip, recordid); err != nil {
-				log.Println("set domain name record failed: ", err)
+				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("set domain name record failed")
 				goto sleep
 			}
-			log.Println("set domain record success")
+			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithField("record", ip).Info("set domain A record success")
 		}
 	save_last_ip:
 		lastPubIP = ip
 	sleep:
 		if conf.RefreshInterval > 1 {
-			log.Printf("sleep %v for refresh\n", conf.RefreshInterval*time.Second)
+			util.Logger.Debug("sleep for refresh")
 			time.Sleep(conf.RefreshInterval * time.Second)
 		} else {
 			break
