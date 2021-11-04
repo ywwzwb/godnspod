@@ -3,17 +3,13 @@ package main
 // build for ea6500v2:
 // GOARM=5 GOARCH=arm GOOS=linux CGO_ENABLED=0 go build -ldflags "-w -s"
 import (
-	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"godnspod/util"
 	"io/ioutil"
-	"net/http"
-	"net/url"
+	"net"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -22,162 +18,123 @@ import (
 
 // Config is reading from config.yaml
 type Config struct {
-	GetIPMethod     string        `yaml:"get_ip_method"`
+	GetIPV4Methods  []GetIPMethod `yaml:"get_ipv4_method"`
+	GetIPV6Methods  []GetIPMethod `yaml:"get_ipv6_method"`
 	RefreshInterval time.Duration `yaml:"refresh_interval"`
 	Token           string        `yaml:"token"`
 	Basedomain      string        `yaml:"basedomain"`
 	Subdomain       string        `yaml:"subdomain"`
 }
+type GetIPMethod struct {
+	Method          string `yaml:"method"`
+	NetworkCardName string `yaml:"networkcard,omitempty"`
+	Api             string `yaml:"api,omitempty"`
+	Regex           string `yaml:"regex,omitempty"`
+	CustomHead      string `yaml:"custom_head,omitempty"`
+}
+
+type RecordType string
 
 const (
-	getIPMethodWanIP string = "wanip"
-	getIPMethodCIP   string = "ip.cip.cc"
+	RecordTypeAName    RecordType = "A"
+	RecordTypeAAAAName RecordType = "AAAA"
 )
 
-const (
-	dnspodErrorCodeSuccess        int = 1
-	dnspodErrorCodeRecordNotExist int = 10
-)
+func refresh(conf Config) {
+	func() {
+		// ipv4
+		ipv4 := ""
+	getipv4loop:
+		for _, method := range conf.GetIPV4Methods {
 
-type dnspodError struct {
-	msg  string
-	code int
-}
-
-func (e dnspodError) Error() string {
-	return fmt.Sprintf("get domain error, code:%v, msg:%v", e.code, e.msg)
-}
-
-func getMyPubIPFromCIP() (string, error) {
-	resp, err := http.Get("http://ip.cip.cc/")
-	if err != nil {
-		return "", err
-	}
-	ipbuf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(ipbuf)), nil
-}
-func getMyPubIP(method string) (ip string, err error) {
-	switch method {
-	case getIPMethodWanIP:
-		cmd := exec.Command("nvram", "get", "wan0_ipaddr")
-		outbuf, err := cmd.CombinedOutput()
-		if err != nil {
-			return "", err
+			switch method.Method {
+			case GetIPMethodDisable:
+				util.Logger.Info("ipv4 is disabled")
+				return
+			default:
+				log := util.Logger.WithField("method", method.Method)
+				log.Debug("start get ipv4 address")
+				if getIPFunc, ok := GetIPMethodsFuncs[method.Method]; ok {
+					_ipv4, err := getIPFunc(method, false)
+					if net.ParseIP(_ipv4) == nil {
+						log.WithField("ip", _ipv4).Error("bad ip address")
+						continue
+					}
+					if len(_ipv4) == 0 && err == nil {
+						err = errors.New("empty ip address")
+					}
+					if err != nil {
+						log.WithError(err).Error("get ipv4 address failed")
+						continue
+					}
+					log.WithField("ip", _ipv4).Debug("get ipv4 address done")
+					// if get ip address, then break out
+					ipv4 = _ipv4
+					break getipv4loop
+				}
+			}
+			// set
 		}
-		return strings.TrimSpace(string(outbuf)), nil
-	case getIPMethodCIP:
-		return getMyPubIPFromCIP()
-	default:
-		return "", fmt.Errorf("unknown method:%v", method)
-	}
-}
-func getDomainANameRecord(subdomain string, domain string, token string) (ip string, recordid string, err error) {
-	params := make(url.Values)
-	params["login_token"] = []string{token}
-	params["format"] = []string{"json"}
-	params["lang"] = []string{"cn"}
-	params["record_type"] = []string{"A"}
-	params["domain"] = []string{domain}
-	params["sub_domain"] = []string{subdomain}
-	resp, err := http.PostForm("https://dnsapi.cn/Record.List", params)
-	if err != nil {
-		return
-	}
-	var result map[string]interface{}
-	respBuf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	if err = json.Unmarshal(respBuf, &result); err != nil {
-		return
-	}
-	status := result["status"].(map[string]interface{})
-	code, _ := strconv.Atoi(status["code"].(string))
-	msg := status["message"].(string)
-	if code != dnspodErrorCodeSuccess {
-		err = dnspodError{code: code, msg: msg}
-		return
-	}
-	records := result["records"].([]interface{})
-	if len(records) == 0 {
-		err = dnspodError{code: dnspodErrorCodeRecordNotExist, msg: "can not found record"}
-		return
-	}
-	firstRecord := records[0].(map[string]interface{})
-	recordid = firstRecord["id"].(string)
-	ip = firstRecord["value"].(string)
-	return
-}
-func createDomainANameRecord(subdomain string, domain string, token string, ip string) (err error) {
-	params := make(url.Values)
-	params["login_token"] = []string{token}
-	params["format"] = []string{"json"}
-	params["lang"] = []string{"cn"}
-	params["record_type"] = []string{"A"}
-	params["domain"] = []string{domain}
-	params["sub_domain"] = []string{subdomain}
-	params["value"] = []string{ip}
-	params["record_line"] = []string{"默认"}
-	resp, err := http.PostForm("https://dnsapi.cn/Record.Create", params)
-	if err != nil {
-		return
-	}
-	var result map[string]interface{}
-	respBuf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	if err = json.Unmarshal(respBuf, &result); err != nil {
-		return
-	}
-	status := result["status"].(map[string]interface{})
-	code, _ := strconv.Atoi(status["code"].(string))
-	msg := status["message"].(string)
-	if code != dnspodErrorCodeSuccess {
-		return dnspodError{code: code, msg: msg}
-	}
-	return nil
-}
-func setDomainANameRecord(subdomain string, domain string, token string, ip string, recordid string) (err error) {
-	params := make(url.Values)
-	params["login_token"] = []string{token}
-	params["format"] = []string{"json"}
-	params["lang"] = []string{"cn"}
-	params["record_type"] = []string{"A"}
-	params["domain"] = []string{domain}
-	params["sub_domain"] = []string{subdomain}
-	params["value"] = []string{ip}
-	params["record_line"] = []string{"默认"}
-	params["record_id"] = []string{recordid}
-	resp, err := http.PostForm("https://dnsapi.cn/Record.Modify", params)
-	if err != nil {
-		return
-	}
-	var result map[string]interface{}
-	respBuf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	if err = json.Unmarshal(respBuf, &result); err != nil {
-		return
-	}
-	status := result["status"].(map[string]interface{})
-	code, _ := strconv.Atoi(status["code"].(string))
-	msg := status["message"].(string)
-	if code != dnspodErrorCodeSuccess {
-		return dnspodError{code: code, msg: msg}
-	}
-	return nil
+		if len(ipv4) == 0 {
+			util.Logger.Error("no ipv4 address")
+			return
+		}
+		if err := UpdateRecord(RecordTypeAName, conf.Subdomain, conf.Basedomain, conf.Token, ipv4); err != nil {
+			util.Logger.WithError(err).Error("update a name failed")
+		} else {
+			util.Logger.Info("update a name succeed")
+		}
+	}()
+	func() {
+		// ipv6
+		ipv6 := ""
+	getipv6loop:
+		for _, method := range conf.GetIPV6Methods {
+			switch method.Method {
+			case GetIPMethodDisable:
+				util.Logger.Info("ipv6 is disabled")
+				return
+			default:
+				log := util.Logger.WithField("method", method.Method)
+				log.Debug("start get ipv6 address")
+				if getIPFunc, ok := GetIPMethodsFuncs[method.Method]; ok {
+					_ipv6, err := getIPFunc(method, true)
+					if net.ParseIP(_ipv6) == nil {
+						log.WithField("ip", _ipv6).Error("bad ip address")
+						continue
+					}
+					if len(_ipv6) == 0 && err == nil {
+						err = errors.New("empty ip address")
+					}
+					if err != nil {
+						log.WithError(err).Error("get ipv6 address failed")
+						continue
+					}
+					log.WithField("ip", _ipv6).Debug("get ipv6 address done")
+					// if get ip address, then break out
+					ipv6 = _ipv6
+					break getipv6loop
+				}
+			}
+			// set
+		}
+		if len(ipv6) == 0 {
+			util.Logger.Error("no ipv6 address")
+			return
+		}
+		if err := UpdateRecord(RecordTypeAAAAName, conf.Subdomain, conf.Basedomain, conf.Token, ipv6); err != nil {
+			util.Logger.WithError(err).Error("update aaaa name failed")
+		} else {
+			util.Logger.Info("update aaaa name succeed")
+		}
+	}()
 }
 func main() {
 	var configPath string
 	var logPath string
 	var logLevelStr string
 	flag.StringVar(&configPath, "config_path", "", "config file path")
-	flag.StringVar(&logPath, "log_path", "", "log file path, leave empty to log to stdout")
+	flag.StringVar(&logPath, "log_path", "", "log file path, leave empty will log to stdout")
 	flag.StringVar(&logLevelStr, "log_level", "", "log level: trace, debug, info, warn, error, fatal, panic. default set to info")
 	flag.Parse()
 	// read from env
@@ -219,52 +176,8 @@ func main() {
 	if err = yaml.Unmarshal(fileBuf, &conf); err != nil {
 		util.Logger.WithError(err).Fatal("parse config file failed")
 	}
-	var lastPubIP string = ""
-	var anameIP string = ""
-	var recordid string = ""
 	for {
-		ip, err := getMyPubIP(conf.GetIPMethod)
-		if err != nil {
-			util.Logger.WithError(err).Error("get my public ip error:", err)
-			goto sleep
-		}
-		util.Logger.WithField("ip", ip).Debug("my public ip")
-		if lastPubIP == ip {
-			util.Logger.WithField("ip", ip).Debug("public ip has no change")
-			goto sleep
-		}
-		anameIP, recordid, err = getDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token)
-		if err != nil {
-			if dnspodErr, ok := err.(dnspodError); ok && dnspodErr.code == dnspodErrorCodeRecordNotExist {
-				// its ok if the domain is not exist, we can create it later
-				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("domain is not exist, create it later")
-			} else {
-				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("get A name record failed")
-				goto sleep
-			}
-		}
-		if anameIP == "" {
-			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("start create domain")
-			if err := createDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token, ip); err != nil {
-				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("create domain failed")
-				goto sleep
-			}
-			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Info("create domain success")
-		} else {
-			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Debug("domain A record")
-			if anameIP == ip {
-				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).Debug("A record is equal to current ip")
-				goto save_last_ip
-			}
-			if err = setDomainANameRecord(conf.Subdomain, conf.Basedomain, conf.Token, ip, recordid); err != nil {
-				util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithError(err).Error("set domain name record failed")
-				goto sleep
-			}
-			util.Logger.WithField("domain", fmt.Sprintf("%v.%v", conf.Subdomain, conf.Basedomain)).WithField("record", ip).Info("set domain A record success")
-		}
-	save_last_ip:
-		lastPubIP = ip
-	sleep:
+		refresh(conf)
 		if conf.RefreshInterval > 1 {
 			util.Logger.Debug("sleep for refresh")
 			time.Sleep(conf.RefreshInterval * time.Second)
