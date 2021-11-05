@@ -1,15 +1,17 @@
 # support method:
-# disable: not enable this protocol
-# wanip: try get ip by wan ip, only work on ea6500v2, other platform is not tested yet
+# disable: disable this protocol
+# nvram: try get ip by nvram, only work on ea6500v2, other platform is not tested yet
 # lanip: try get ip by lan ip address
-# ip.cip.cc: get ip from ip.cip.cc, ipv4 only
+# network_api: get ip from a api
+# static: set a static ip address
+# fix_suffix: set a ip address with a fixed suffix
+# more detail in readme.md
 get_ipv4_method:
   - method: network_api
     api: http://v4.ip.zxinc.org/getip
     # regex:
     # custom_head: 
       # xxx: yyy
-  - method: wanip
 get_ipv6_method:
   # - method: lanip
   #   networkcard: en0
