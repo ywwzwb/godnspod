@@ -17,12 +17,14 @@ const (
 	GetIPMethodWanIP   string = "wanip"
 	GetIPMethodLanIP   string = "lanip"
 	GetIPMethodAPI     string = "network_api"
+	GetIPMethodStatic  string = "static"
 )
 
 var GetIPMethodsFuncs = map[string]GetIPMethodFunc{
-	GetIPMethodWanIP: getMyPubIPFromWanIP,
-	GetIPMethodLanIP: getMyPubIPFromLanIP,
-	GetIPMethodAPI:   getMyPubIPFromNetworkAPI,
+	GetIPMethodWanIP:  getMyPubIPFromWanIP,
+	GetIPMethodLanIP:  getMyPubIPFromLanIP,
+	GetIPMethodAPI:    getMyPubIPFromNetworkAPI,
+	GetIPMethodStatic: getMyPubIPFromStaticIP,
 }
 
 func getMyPubIPFromNetworkAPI(method GetIPMethod, isIPV6 bool) (string, error) {
@@ -62,6 +64,7 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	}
 	return strings.TrimSpace(string(outbuf)), nil
 }
+
 func getMyPubIPFromWanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	if isIPV6 {
 		return "", errors.New("wan ip not support ipv6")
@@ -72,4 +75,7 @@ func getMyPubIPFromWanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(outbuf)), nil
+}
+func getMyPubIPFromStaticIP(method GetIPMethod, isIPV6 bool) (string, error) {
+	return method.Address, nil
 }

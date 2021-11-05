@@ -126,7 +126,7 @@ func setDomainRecord(recordType RecordType, subdomain string, domain string, tok
 }
 
 func UpdateRecord(recordType RecordType, subdomain string, domain string, token string, IPAddress string) error {
-	currentIP := net.IP(IPAddress)
+	currentIP := net.ParseIP(IPAddress)
 	if !currentIP.IsGlobalUnicast() {
 		return fmt.Errorf("ip address:%v is not a global unicast address", IPAddress)
 	}

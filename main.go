@@ -31,6 +31,7 @@ type GetIPMethod struct {
 	Api             string `yaml:"api,omitempty"`
 	Regex           string `yaml:"regex,omitempty"`
 	CustomHead      string `yaml:"custom_head,omitempty"`
+	Address         string `yaml:"address,omitempty"`
 }
 
 type RecordType string
