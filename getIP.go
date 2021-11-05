@@ -15,7 +15,7 @@ type GetIPMethodFunc func(GetIPMethod, bool) (string, error)
 
 const (
 	GetIPMethodDisable     string = "disable"
-	GetIPMethodWanIP       string = "wanip"
+	GetIPMethodNvram       string = "nvram"
 	GetIPMethodLanIP       string = "lanip"
 	GetIPMethodAPI         string = "network_api"
 	GetIPMethodStatic      string = "static"
@@ -26,7 +26,7 @@ var GetIPMethodsFuncs = map[string]GetIPMethodFunc{}
 
 func initIPMethodMap() {
 	GetIPMethodsFuncs = map[string]GetIPMethodFunc{
-		GetIPMethodWanIP:       getMyPubIPFromWanIP,
+		GetIPMethodNvram:       getMyPubIPFromNvram,
 		GetIPMethodLanIP:       getMyPubIPFromLanIP,
 		GetIPMethodAPI:         getMyPubIPFromNetworkAPI,
 		GetIPMethodStatic:      getMyPubIPFromStaticIP,
@@ -72,11 +72,12 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	return strings.TrimSpace(string(outbuf)), nil
 }
 
-func getMyPubIPFromWanIP(method GetIPMethod, isIPV6 bool) (string, error) {
+func getMyPubIPFromNvram(method GetIPMethod, isIPV6 bool) (string, error) {
+	var key = "wan0_ipaddr"
 	if isIPV6 {
-		return "", errors.New("wan ip not support ipv6")
+		key = "ipv6_rtr_addr"
 	}
-	cmd := exec.Command("nvram", "get", "wan0_ipaddr")
+	cmd := exec.Command("nvram", "get", key)
 	outbuf, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", err
