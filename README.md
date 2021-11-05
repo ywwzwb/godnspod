@@ -25,8 +25,8 @@
     * custom_head: 请求 API 的自定义head, 暂未实现
   * static: 静态地址
     * address: ip 地址
-  * fix_suffix: 固定后缀地址，用于ipv6, 需要指定前缀长度，前缀获取方式，后缀
-    * suffix: 后缀，例如a:b:c:d
+  * fix_suffix: 固定后缀地址, 需要指定前缀长度，前缀获取方式，后缀
+    * suffix: 后缀，例如::a:b:c:d
     * prefix_method: 前缀获取方式，与公网ip地址方式一致
     * prefix_len: 前缀长度
 * refresh_interval: 检查 IP 地址的时间间隔, 单位是秒, 设置为 0 程序将会经运行一次就退出

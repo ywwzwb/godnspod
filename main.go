@@ -26,12 +26,15 @@ type Config struct {
 	Subdomain       string        `yaml:"subdomain"`
 }
 type GetIPMethod struct {
-	Method          string `yaml:"method"`
-	NetworkCardName string `yaml:"networkcard,omitempty"`
-	Api             string `yaml:"api,omitempty"`
-	Regex           string `yaml:"regex,omitempty"`
-	CustomHead      string `yaml:"custom_head,omitempty"`
-	Address         string `yaml:"address,omitempty"`
+	Method          string       `yaml:"method"`
+	NetworkCardName string       `yaml:"networkcard,omitempty"`
+	Api             string       `yaml:"api,omitempty"`
+	Regex           string       `yaml:"regex,omitempty"`
+	CustomHead      string       `yaml:"custom_head,omitempty"`
+	Address         string       `yaml:"address,omitempty"`
+	Suffix          string       `yaml:"suffix,omitempty"`
+	PrefixMethod    *GetIPMethod `yaml:"prefix_method,omitempty"`
+	PrefixLength    int          `yaml:"prefix_length,omitempty"`
 }
 
 type RecordType string
@@ -74,7 +77,6 @@ func refresh(conf Config) {
 					break getipv4loop
 				}
 			}
-			// set
 		}
 		if len(ipv4) == 0 {
 			util.Logger.Error("no ipv4 address")
@@ -117,7 +119,6 @@ func refresh(conf Config) {
 					break getipv6loop
 				}
 			}
-			// set
 		}
 		if len(ipv6) == 0 {
 			util.Logger.Error("no ipv6 address")
@@ -177,6 +178,7 @@ func main() {
 	if err = yaml.Unmarshal(fileBuf, &conf); err != nil {
 		util.Logger.WithError(err).Fatal("parse config file failed")
 	}
+	initIPMethodMap()
 	for {
 		refresh(conf)
 		if conf.RefreshInterval > 1 {

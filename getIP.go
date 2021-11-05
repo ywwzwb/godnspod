@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os/exec"
 	"runtime"
@@ -13,18 +14,24 @@ import (
 type GetIPMethodFunc func(GetIPMethod, bool) (string, error)
 
 const (
-	GetIPMethodDisable string = "disable"
-	GetIPMethodWanIP   string = "wanip"
-	GetIPMethodLanIP   string = "lanip"
-	GetIPMethodAPI     string = "network_api"
-	GetIPMethodStatic  string = "static"
+	GetIPMethodDisable     string = "disable"
+	GetIPMethodWanIP       string = "wanip"
+	GetIPMethodLanIP       string = "lanip"
+	GetIPMethodAPI         string = "network_api"
+	GetIPMethodStatic      string = "static"
+	GetIPMethodFixedSuffix string = "fix_suffix"
 )
 
-var GetIPMethodsFuncs = map[string]GetIPMethodFunc{
-	GetIPMethodWanIP:  getMyPubIPFromWanIP,
-	GetIPMethodLanIP:  getMyPubIPFromLanIP,
-	GetIPMethodAPI:    getMyPubIPFromNetworkAPI,
-	GetIPMethodStatic: getMyPubIPFromStaticIP,
+var GetIPMethodsFuncs = map[string]GetIPMethodFunc{}
+
+func initIPMethodMap() {
+	GetIPMethodsFuncs = map[string]GetIPMethodFunc{
+		GetIPMethodWanIP:       getMyPubIPFromWanIP,
+		GetIPMethodLanIP:       getMyPubIPFromLanIP,
+		GetIPMethodAPI:         getMyPubIPFromNetworkAPI,
+		GetIPMethodStatic:      getMyPubIPFromStaticIP,
+		GetIPMethodFixedSuffix: getMyPubIPFromFixedSuffix,
+	}
 }
 
 func getMyPubIPFromNetworkAPI(method GetIPMethod, isIPV6 bool) (string, error) {
@@ -78,4 +85,48 @@ func getMyPubIPFromWanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 }
 func getMyPubIPFromStaticIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	return method.Address, nil
+}
+func getMyPubIPFromFixedSuffix(method GetIPMethod, isIPV6 bool) (string, error) {
+	if method.PrefixMethod == nil {
+		return "", errors.New("prefix method nil")
+	}
+	if method.PrefixMethod.Method == GetIPMethodFixedSuffix {
+		return "", errors.New("bad method, recursive call")
+	}
+	var prefixIPStr string
+	if getIPFunc, ok := GetIPMethodsFuncs[method.PrefixMethod.Method]; !ok {
+		return "", fmt.Errorf("unkonwn method:%v", method.PrefixMethod.Method)
+	} else {
+		var err error
+		prefixIPStr, err = getIPFunc(*method.PrefixMethod, isIPV6)
+		if err != nil {
+			return "", fmt.Errorf("get prefix error:%v", err)
+		}
+	}
+	prefixIP := net.ParseIP(prefixIPStr)
+	bitlen := 8 * net.IPv4len
+	if isIPV6 {
+		bitlen = 8 * net.IPv6len
+	}
+	netmask := net.CIDRMask(method.PrefixLength, bitlen)
+	if netmask == nil {
+		return "", fmt.Errorf("create network mask failed")
+	}
+	maskedIP := prefixIP.Mask(netmask)
+	suffixIP := net.ParseIP(method.Suffix)
+	if !isIPV6 {
+		suffixIP = suffixIP.To4()
+	}
+	var finalIP = net.IPv4zero.To4()
+	if isIPV6 {
+		finalIP = net.IPv6zero
+	}
+	len := net.IPv4len
+	if isIPV6 {
+		len = net.IPv6len
+	}
+	for i := 0; i < len; i++ {
+		finalIP[i] = suffixIP[i] | maskedIP[i]
+	}
+	return finalIP.String(), nil
 }

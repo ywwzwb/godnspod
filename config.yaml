@@ -11,8 +11,14 @@ get_ipv4_method:
       # xxx: yyy
   - method: wanip
 get_ipv6_method:
-  - method: lanip
-    networkcard: en0
+  # - method: lanip
+  #   networkcard: en0
+  - method: fix_suffix
+    suffix: ::a:b:c:d
+    prefix_method: 
+      method: static
+      address: 1:2:3:4::5
+    prefix_length: 64
   
 # interval is measured in seconds
 # 0 means run once and quit
