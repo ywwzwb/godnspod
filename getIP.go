@@ -73,16 +73,28 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 }
 
 func getMyPubIPFromNvram(method GetIPMethod, isIPV6 bool) (string, error) {
-	var key = "wan0_ipaddr"
+	// var keys = make([]string, 1)
+	var keys []string
 	if isIPV6 {
-		key = "ipv6_rtr_addr"
+		keys = []string{"ipv6_rtr_addr", "lan_addr6"}
+	} else {
+		keys = []string{"wan0_ipaddr"}
 	}
-	cmd := exec.Command("nvram", "get", key)
-	outbuf, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", err
+	for _, key := range keys {
+		cmd := exec.Command("nvram", "get", key)
+		outbuf, err := cmd.CombinedOutput()
+		if err != nil {
+			return "", err
+		}
+		ipRaw := strings.TrimSpace(string(outbuf))
+		if len(ipRaw) == 0 {
+			continue
+		}
+		// lan_addr6 取出来lan地址是带有掩码长度的，例如 a:b::c:d/60
+		ip := strings.Split(ipRaw, "/")[0]
+		return ip, nil
 	}
-	return strings.TrimSpace(string(outbuf)), nil
+	return "", fmt.Errorf("no ip")
 }
 func getMyPubIPFromStaticIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	return method.Address, nil

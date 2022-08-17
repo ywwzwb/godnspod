@@ -16,7 +16,7 @@
   *  ipv6
   每种协议下，支持一下几种方式获取ip 地址
   * disable: 禁用此协议。
-  * nvram: 仅路由器支持, 从设备的 nvram 中读取, 目前仅在我的路由器(ea6500v2, 梅林版本 380.70_0-X7.9.1)上可以正常使用, 其他路由器暂未测试
+  * nvram: 仅路由器支持, 从设备的 nvram 中读取, 目前仅在我的路由器(ea6500v2, 梅林版本 380.70_0-X7.9.1, 红米2100, RM2100, Padvan 3.4.3.9-099_20201015)上可以正常使用, 其他路由器暂未测试
   * lanip: 使用某个网卡的ip地址，需要指定一个网卡
     * networkcard: 网卡名称
   * network_api: 使用 api 获取公网 IP 地址, 所有设备以及 docker 环境均可使用, 此方案仅支持ipv4, 需要指定服务器
@@ -57,5 +57,15 @@ export GOOS=linux && export GOARCH=arm && export GOARM=5 && go build
 如果要缩小体积, 可以编译时去掉调试信息
 ```bash
 export GOOS=linux && export GOARCH=arm && export GOARM=5 && go build -ldflags="-s -w" 
+```
+
+## 给路由器 RM2100 的编译命令
+
+```bash
+export GOOS=linux && export GOARCH=mipsle && go build
+```
+如果要缩小体积, 可以编译时去掉调试信息
+```bash
+export GOOS=linux && export GOARCH=mipsle && go build -trimpath -ldflags="-s -w"
 ```
 
