@@ -69,7 +69,22 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(outbuf)), nil
+	ipList := strings.Split(strings.TrimSpace(string(outbuf)), "\n")
+	if len(ipList) == 0 {
+		return "", errors.New("no ip found")
+	}
+	if len(ipList) == 1 {
+		return ipList[0], nil
+	}
+	finalIP := ipList[0]
+	for _, ipStr := range ipList {
+		ip := net.ParseIP(ipStr)
+		if !ip.IsPrivate() && ip.IsGlobalUnicast() {
+			finalIP = ipStr
+			break
+		}
+	}
+	return finalIP, nil
 }
 
 func getMyPubIPFromNvram(method GetIPMethod, isIPV6 bool) (string, error) {
