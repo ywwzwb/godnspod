@@ -54,14 +54,18 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	if isIPV6 {
 		if runtime.GOOS == "darwin" {
 			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet6 [^f].+(([0-9]+)|(secured)) ?$/ {print $2}'`, method.NetworkCardName)
+		} else if _, err := exec.LookPath("ip"); err == nil {
+			cmdStr = fmt.Sprintf(`ip -6 address show dev %v -deprecated scope global | awk '/inet6/{split($2,result,"/");print result[1]}'`, method.NetworkCardName)
 		} else {
 			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet6 addr:.*Scope:Global/ { gsub(/\/.*$/, "",$3);print $3}'`, method.NetworkCardName)
 		}
 	} else {
 		if runtime.GOOS == "darwin" {
 			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet / {print $2}'`, method.NetworkCardName)
+		} else if _, err := exec.LookPath("ip"); err == nil {
+			cmdStr = fmt.Sprintf(`ip -4 address show dev %v -deprecated scope global -dynamic | awk '/inet/{print $2}'`, method.NetworkCardName)
 		} else {
-			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet addr/ {gsub("addr:", "", $2); print $2}'`, method.NetworkCardName)
+			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet6 addr:.*Scope:Global/ { gsub(/\/.*$/, "",$3);print $3}'`, method.NetworkCardName)
 		}
 	}
 	cmd := exec.Command("sh", "-c", cmdStr)
