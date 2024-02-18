@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine
+FROM golang:1.22-alpine
 # this run command is for speeding up in China
 # RUN go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct && \
 #     sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
