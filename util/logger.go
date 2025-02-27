@@ -33,7 +33,7 @@ func InitLoggerWith(logLevel logrus.Level, logPath string, maxLogFileCount uint)
 		}
 		Logger.SetOutput(writer)
 	} else {
-		log.SetOutput(os.Stdout)
+		Logger.SetOutput(os.Stdout)
 	}
 	Logger.Formatter = &logrus.JSONFormatter{}
 	Logger.SetReportCaller(logLevel >= logrus.DebugLevel)

@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
-	"runtime"
 	"strings"
 )
 
@@ -50,26 +49,46 @@ func getMyPubIPFromLanIP(method GetIPMethod, isIPV6 bool) (string, error) {
 	if len(method.NetworkCardName) == 0 {
 		return "", errors.New("lan ip must specific a network card name")
 	}
-	var cmdStr string
-	if isIPV6 {
-		if runtime.GOOS == "darwin" {
-			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet6 [^f].+(([0-9]+)|(secured)) ?$/ {print $2}'`, method.NetworkCardName)
-		} else {
-			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet6 addr:.*Scope:Global/ { gsub(/\/.*$/, "",$3);print $3}'`, method.NetworkCardName)
-		}
-	} else {
-		if runtime.GOOS == "darwin" {
-			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet / {print $2}'`, method.NetworkCardName)
-		} else {
-			cmdStr = fmt.Sprintf(`ifconfig %v | awk '/inet addr/ {gsub("addr:", "", $2); print $2}'`, method.NetworkCardName)
-		}
-	}
-	cmd := exec.Command("sh", "-c", cmdStr)
-	outbuf, err := cmd.CombinedOutput()
+	iface, err := net.InterfaceByName(method.NetworkCardName)
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(outbuf)), nil
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return "", err
+	}
+	var finalIP net.IP = nil
+	for _, addr := range addrs {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip.To4() != nil {
+			// ipv4
+			ip = ip.To4()
+			if isIPV6 {
+				continue
+			}
+		} else {
+			if !isIPV6 {
+				continue
+			}
+			// ipv6
+		}
+		if finalIP == nil {
+			finalIP = ip
+		}
+		if !ip.IsPrivate() && ip.IsGlobalUnicast() {
+			return ip.String(), nil
+		}
+	}
+	if finalIP == nil {
+		return "", errors.New("no ip")
+	}
+	return finalIP.String(), nil
 }
 
 func getMyPubIPFromNvram(method GetIPMethod, isIPV6 bool) (string, error) {
