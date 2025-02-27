@@ -153,7 +153,7 @@ func UpdateRecord(recordType RecordType, subdomain string, domain string, token 
 		return nil
 	}
 	log.WithField("current record", recordIP).Debug("current record address")
-	if currentIP.Equal(net.IP(recordIP)) {
+	if currentIP.Equal(net.ParseIP(recordIP)) {
 		log.Debug("record is equal to current ip address")
 		return nil
 	}
