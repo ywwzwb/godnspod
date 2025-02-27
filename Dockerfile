@@ -3,8 +3,7 @@ FROM golang:1.22-alpine
 # RUN go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct && \
 #     sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
 RUN apk update && \
-    apk add git && \
-    go get gopkg.in/yaml.v2
+    apk add git
 
 WORKDIR /go/src/godnspod/
 COPY ./ ./
